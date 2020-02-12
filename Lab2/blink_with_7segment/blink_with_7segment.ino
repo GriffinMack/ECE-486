@@ -8,104 +8,130 @@
   *the Arduino onboard LED will blink, along with an external LED that is 180 out of phase.
   *
   *Additionally, each change of the switch increments a counter that is displayed in decimal,
-  *and in hexidecimal on the serial display. This count's LSB will also be displayed on an 
+  *and in hexidecimal on the serial display. The hex count will also be displayed on an 
   *external 7 segment display.
   *
   * pinout for LED & 7-segment display                  7-segment display diagram
   *  arduino     7-segment                                        aa          *NOTE: pin 1(o) will
-  *    pin 1       o                                             f  b          only display if current
-  *    pin 2       a                                             f  b          value is >9 (decimal)
-  *    pin 3       b                                              gg
-  *    pin 4       c                                             e  c
-  *    pin 5       d                                             e  c
-  *    pin 6       e                                              dd  o
-  *    pin 7       f
-  *    pin 8       g
-  *    pin 9       o
-  *    pin 10      LED(external)
+  *    pin 2       o                                             f  b          only display if current
+  *    pin 3       a                                             f  b          value is >9 (decimal)
+  *    pin 4       b                                              gg
+  *    pin 5       c                                             e  c
+  *    pin 6       d                                             e  c
+  *    pin 7       e                                              dd  o
+  *    pin 8       f
+  *    pin 9       g
+  *    pin 10       o
+  *    pin 11      LED(external)
 */
+#define LED_PIN 10
+#define SWITCH_PIN 11
+
 void setup() {
-    Serial.begin(9600);                               // initialize serial:
-    pinMode(11, INPUT);                               // initialize digital pin 11 as input(switch)
-    pinMode(LED_BUILTIN, OUTPUT);                     // initialize digital pin LED_BUILTIN as output.
-    for(int i = 2; i < 11; i++)
-        pinMode(i, OUTPUT);                           // initialize digital pins 2-10 as output.
+    /* setup for Serial Monitor and digital IO pins
+     */
+    Serial.begin(9600);                                        // initialize serial
+    pinMode(SWITCH_PIN, INPUT);                                // initialize digital pin 11 as input(switch)
+    pinMode(LED_BUILTIN, OUTPUT);                              // initialize digital pin LED_BUILTIN as output
+    for(int i = 2; i < 11; i++) {
+        pinMode(i, OUTPUT);                                    // initialize digital pins 2-10 as output(7-segment)
     }
+}
+
 void loop() {
+    /* start of program (main loop found below)
+     */
+    //array storing patterns for 0-F on 7-segment display
+    //    EX) Displaying 0:  0 1 2 3 4 5 6 7
+    //                       a b c d e f g h
+    //                       1 1 1 1 1 1 0 0
+    String patterns[16] = {"11111100", "01100000", "11011010", "11110010",
+                           "01100110", "10110110", "10111110", "11100000",
+                           "11111110", "11110110", "11101111", "00111111",
+                           "10011101", "01111011", "10011111", "10001111"};
+
     // variables used to blink LED's
     unsigned long previous_time = 0;
     unsigned long current_time = 0;
     const long interval = 1000;
-    const int LED_pin = 10;
     int LED_state = LOW;
 
-    // array storing patterns for 0-F(indexed accordingly)
-    String patterns[16] = {"11111100", "01100000", "11011010","11110010", "01100110", "10110110", "10111110", "11100000",
-                           "11111110", "11110110", "11101111", "00111111", "10011101", "01111011", "10011111", "10001111"};
-
     // variables used to monitor switch position
-    const int switch_pin = 11;
     int switch_state = LOW;
     int previous_switch_state = LOW;
     int switch_counter = 0;
 
-    // initializing 7-segment display
-    displayNumber(patterns[0]);
+    displayNumber(patterns[0]);                                // initializing 7-segment display
+    switch_state = digitalRead(SWITCH_PIN);                    // initializing switch
+    previous_switch_state = switch_state;                      // initializing switch previous state
 
-    while(1){
+    Serial.println("Toggle switch to begin counting!");        // inform the user how to use the counter
 
-        // check to see if the switch state has changed
-        switch_state = digitalRead(switch_pin);
-        if(switch_state != previous_switch_state){
-            // if it has changed from LOW->HIGH, iterate the count and display
-            if(switch_state == HIGH){
-                switch_counter ++;                                        // increment the counter
-                displayNumber(patterns[switch_counter % 16]);             // display the counter on 7-segment
-                serialPrint(switch_state, switch_counter);                // display the counter on serial monitor
-            }       
-            // if it has changed from HIGH->LOW, turn off LED's
-            else{
-                digitalWrite(LED_pin, LOW);
-                digitalWrite(LED_BUILTIN, LOW);
-                LED_state = LOW;
-                serialPrint(switch_state, switch_counter);                // notify user the switch is off on the serial monitor
-            }
+    while(1) {
+        // update the count if the switch is moved
+        if(switch_state != previous_switch_state) {
+            switch_counter ++;                                 // increment the counter
+            displayNumber(patterns[switch_counter % 16]);      // display the counter on 7-segment
+            serialPrint(switch_counter);                       // display the counter on serial monitor
+        }
         // if the switch is HIGH, the LED's should be blinking
-        }
-        if(switch_state == HIGH){
-            current_time = millis();                                      // outputs how long the program has been running
-            if (current_time - previous_time >= interval) {               // check if it has been more than 1s since blinking
-                previous_time = current_time;
-                if (LED_state == LOW) LED_state = HIGH;
-                else LED_state = LOW;
-            digitalWrite(LED_BUILTIN, LED_state);
-            digitalWrite(LED_pin, !LED_state);                            // external LED is always opposite of onboard LED
+        if(switch_state == HIGH) {
+            current_time = millis();                           // outputs how long the program has been running
+            if (current_time - previous_time >= interval) {    // check if it has been more than 1s since blinking
+                previous_time = current_time;                  // store time for next pass
+                LED_state = blinkLED(&LED_state);              // blink LED and update LED state
             }
         }
-        // store the state of the switch to compare during next run
-        previous_switch_state = switch_state;
+        else{
+            digitalWrite(LED_BUILTIN, LOW);                    // reset the builtin LED to low
+            digitalWrite(LED_PIN, LOW);                        // reset the external LED to low
+
+        }
+        previous_switch_state = switch_state;                  // store the state of the switch
+        switch_state = digitalRead(SWITCH_PIN);
     }
 }
 
-void displayNumber(String pattern){
-    // use the pattern given to write HIGH or LOW to the respective pins
-    for(int i = 0;i< 8;i++){
-        if(pattern[i] == '1') digitalWrite(i+2,HIGH);
-        else digitalWrite(i+2, LOW);
+void displayNumber(String pattern) {
+    /* uses the pattern provided to write HIGH or LOW to the respective 7-segment pins
+     *  INPUT:  pattern to print
+     *  OUTPUT: number displayed on 7-segment display
+     */
+    int offset = 2;                                            // digital outputs start at pin 2, not pin 0
+    for(int i = 0;i< 8;i++) {
+        if(pattern[i] == '1') {
+          digitalWrite(i+offset, HIGH);                        // turn segment LED on if the pattern is 1
+        }
+        else {
+          digitalWrite(i+offset, LOW);                         // turn segment LED off if the pattern is 0
+        }
     }
 }
 
-void serialPrint(int switch_state, int switch_counter){
-    // display the new count in decimal and hexidecimal
-    // current count.. decimal:()    hex:0x()
-    if(switch_state == HIGH){
-        Serial.print("current count.. decimal: ");
-        Serial.print(switch_counter);
-        Serial.print("    hex: 0x");
-        Serial.println(switch_counter, HEX);
+void serialPrint(int switch_counter) {
+    /* prints the current switch counter to the Serial Monitor
+     *  INPUT:  current counter values
+     *  OUTPUT: "current count.. decimal: 1    hex: 0x1"
+     */
+    Serial.print("current count.. decimal: ");
+    Serial.print(switch_counter);                              // display switch_counter in decimal format
+    Serial.print("    hex: 0x");
+    Serial.println(switch_counter % 16, HEX);                  // display switch_counter in hex (only 0-F)
+}
+
+int blinkLED(int* LED_state) {
+    /* takes current LED state and reverses it(blinks)
+     *  INPUT:  current LED state (onboard LED)
+     *  OUTPUT: onboard LED and external LED flipped state
+     *  RETURN: new LED state
+     */
+    if (*LED_state == LOW) {
+      *LED_state = HIGH;                                       // toggle LED LOW->HIGH
     }
-    // let the user know the switch is off
-    else{
-        Serial.println("off");
+    else {
+      *LED_state = LOW;                                        // toggle LED HIGH->LOW
     }
+    digitalWrite(LED_BUILTIN, *LED_state);
+    digitalWrite(LED_PIN, !*LED_state);                        // external LED is opposite of onboard LED
+    return *LED_state;                                         // return new LED state
 }
