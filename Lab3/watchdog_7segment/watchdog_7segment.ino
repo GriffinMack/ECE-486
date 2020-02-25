@@ -2,47 +2,45 @@
   Griffin Mack
   11713813
 
-  Lab2 - Introduction to Digital Input/Output
+  Lab3 - 
 
-  *For this lab, user input is taken from an external switch. Depending on the input,      
-  *the Arduino onboard LED will blink, along with an external LED that is 180 out of phase.
+  *For this lab, the user is prompted for an integer between 0-15 from the serial monitor. 
   *
-  *Additionally, each change of the switch increments a counter that is displayed in decimal,
-  *and in hexidecimal on the serial display. The hex count will also be displayed on an 
-  *external 7 segment display.
+  *If the user enters a value in 4 seconds, their reaction time is printed to the screen and their
+  *   input is displayed on the 7-segment.
+  *If the user enters invalid data, an error message is displayed and the user can try again
+  *If the user doesn't enter data, the 7-segment decimal blinks for 5 seconds and the board resets
   *
   * pinout for LED & 7-segment display                  7-segment display diagram
-  *  arduino     7-segment                                        aa          *NOTE: pin 1(o) will
-  *    pin 2       o                                             f  b          only display if current
-  *    pin 3       a                                             f  b          value is >9 (decimal)
-  *    pin 4       b                                              gg
-  *    pin 5       c                                             e  c
-  *    pin 6       d                                             e  c
-  *    pin 7       e                                              dd  o
-  *    pin 8       f
-  *    pin 9       g
-  *    pin 10       o
-  *    pin 11      LED(external)
+  *  arduino     7-segment                                        aa          *NOTE: pin 10(o) will
+  *                                                              f  b          only display if current
+  *    pin 2       a                                             f  b          value is >9 (decimal)
+  *    pin 3       b                                              gg
+  *    pin 4       c                                             e  c
+  *    pin 5       d                                             e  c
+  *    pin 6       e                                              dd  o
+  *    pin 7       f
+  *    pin 8       g
+  *    pin 9       o
 */
-#define DECIMAL_PIN 10
-#define SWITCH_PIN 11
+#define DECIMAL_PIN 9
 
 void setup() {
     /* setup for Serial Monitor and digital IO pins
      */
-    Serial.begin(115200);                                      // initialize serial
-    pinMode(SWITCH_PIN, INPUT);                                // initialize digital pin 11 as input(switch)
-    pinMode(LED_BUILTIN, OUTPUT);                              // initialize digital pin LED_BUILTIN as output
-    for(int i = 2; i < 11; i++) {
-        pinMode(i, OUTPUT);                                    // initialize digital pins 2-10 as output(7-segment)
+    Serial.begin(115200);                                  //initialize serial
+    for(int i = 2; i < 10; i++) {
+        pinMode(i, OUTPUT);                                //initialize digital pins 2-9 as output(7-segment)
     }
 }
+
+void(* resetFunc) (void) = 0;                              //function to reset arduino board
 
 void loop() {
     /* start of program (main loop found below)
      */
     //array storing patterns for 0-F on 7-segment display
-    //final entries in array corresponds to initialization, no input, and error state repectively
+    //final entries in array corresponds to no input, initialization, and wrong input states repectively
     //    EX) Displaying 0:  0 1 2 3 4 5 6 7
     //                       a b c d e f g h
     //                       1 1 1 1 1 1 0 0
@@ -50,111 +48,122 @@ void loop() {
                            "01100110", "10110110", "10111110", "11100000",
                            "11111110", "11110110", "11101111", "00111111",
                            "10011101", "01111011", "10011111", "10001111", 
-                           "00000001", "10000000", "01001001"};
-    // watchdog and input variables
-    int incoming = 0;
-    unsigned long start_time = 0;
-    unsigned long current_time = 0;
-    const int interval = 4000;
-    bool new_input = false;
-    bool reset_flag = false;
-
-    // variables used to blink LED's
-    unsigned long previous_time = 0;
-    unsigned long new_time = 0;
-    const int blink_interval = 500;
-    int LED_state = LOW;
+                           "00000001", "00000010", "10010010"};
+            
+    // serial input variables
+    int user_int = 0;                                     //stores converted user input from serial monitor
+    String user_input = "";                               //stores user input from serial monitor
+    bool new_input = false;                               //flag to tell if new input has been recieved
+    bool reset_flag = true;                               //board resets if this flag is true
 
 
+    // variables used for reaction timing
+    unsigned long start_time = 0;                         //the time when the user is prompted for input
+    unsigned long current_time = 0;                       //current run time
+    int output_time = 0;                                  //time outputted to user (always between 0-4000 ms)
+    const int timer_interval = 4000;                      //amount of time given for reaction timer
+
+    startupMessage();                                     //inform the user about the system
     while(1) {
-        displayNumber(patterns[16]);                       // initializing 7-segment display(-)
-        Serial.println("Please enter an integer value between 0-15:");        // inform the user how to use the counter
-        reset_flag = true;
-
+        //reset all variables to their default state
+        displayNumber(patterns[17]);                      //initializing 7-segment display(-)
+        reset_flag = true;                                //system should reset after unless told otherwise
+        new_input = false;
+        user_input = "";
+        
+        // inform the user how to use the counter, and start the counter
+        Serial.println("Please enter an integer value between 0-15(decimal values only):");
         start_time = millis();  //grab the current time
         current_time = start_time;
+        output_time = 0;
 
-        //if it has been less than 4 seconds since start
-        while(current_time - start_time <= interval){
-            Serial.println(current_time);
-            
+        while(current_time - start_time <= timer_interval && reset_flag == true){
             if (Serial.available() > 0) {
                 //see if user has inputed anything
-                incoming = Serial.parseInt();
-                Serial.println(incoming);
-                new_input = true;
+                user_input = Serial.readString();
+                new_input = true;                         //flags a user input
+                output_time = current_time - start_time;  //obtain more user friendly time
             }
+            if(new_input == true){
+                user_int = user_input.toInt();            //convert string input into an Int. 
+                                                          //Since non-integers convert to '0', 
+                                                          //must string compare for this case
+                if(user_input == "0" || (user_int >= 1 && user_int <= 15)){   //check if the input is between 0-15
+                    displayNumber(patterns[user_int]);    //display user input on the 7-segment display
+                    //display the reaction time to the serial monitor
+                    Serial.print("Nice Reaction! Input: '");
+                    Serial.print(user_input);                 
+                    Serial.print("' Time: ");
+                    Serial.print(output_time / 1000);
+                    Serial.print(".");
+                    Serial.println(output_time % 1000);   //output: "Nice Reaction! Input: 'z' Time: s.xxx
+                    delay(5000);                          //small delay so user can read serial and 7-segment
 
-            if(new_input = true){
-                //check if the input is between 0-15
-                if(incoming >= 0 && incoming <= 15){
-                    //input is valid, display the input on 7-segment
-                    displayNumber(patterns[incoming]);
-                    //display the reaction time to the serial monitor s.xxx
-                    Serial.print("Nice Reaction! Time: ");
-                    Serial.println(incoming);
                 }
-                else{
-                    //display error on 7-segment, error on serial
-                    displayNumber(patterns[18]);
-                    //restart the timer, not the board
+                else{                                     //input was provided but not in the correct range
+                    //display error message to serial
+                    Serial.print("INVALID INPUT: '");
+                    Serial.print(user_input);
+                    Serial.println("' please input an integer between 0-15...");
+                    displayNumber(patterns[18]);          //display top, middle, and bottom bars on 7-segment
+                    delay(5000);                          //small delay so user can read error message
                 }
-                reset_flag = false;
+                reset_flag = false;                       //don't hard reset device, just restart timer
             }
-
-            current_time = millis();   //grab new time for next run
+            current_time = millis();
         }
-        
         if(reset_flag == true){
             //it has been more than 4 seconds, time to reset
-            Serial.println("No input provided, resetting 7-segment");
-            displayNumber(patterns[17]);   //18 is the decimal point only
-            //the decimal should blink now for 5 seconds
-            //board should now be reset
+            Serial.println("No input provided, resetting device");
+            clearDisplay();                               //assure 7-segment is off
+            blinkDecimal();                               //blink decimal LED for 5 seconds
+            delay(5000);                                  //small delay before reset
+            resetFunc();                                  //hard reset of the arduino board
         }
-    }
-        
+    }      
 }
 
 void displayNumber(String pattern) {
     /* uses the pattern provided to write HIGH or LOW to the respective 7-segment pins
-     *  INPUT:  pattern to print
-     *  OUTPUT: number displayed on 7-segment display
      */
-    int offset = 2;                                            // digital outputs start at pin 2, not pin 0
+    int offset = 2;                                      //digital outputs start at pin 2, not pin 0
     for(int i = 0;i< 8;i++) {
         if(pattern[i] == '1') {
-          digitalWrite(i+offset, HIGH);                        // turn segment LED on if the pattern is 1
+          digitalWrite(i+offset, HIGH);                  //turn segment LED on if the pattern is 1
         }
         else {
-          digitalWrite(i+offset, LOW);                         // turn segment LED off if the pattern is 0
+          digitalWrite(i+offset, LOW);                   //turn segment LED off if the pattern is 0
         }
     }
 }
 
-void serialPrint(int switch_counter) {
-    /* prints the current switch counter to the Serial Monitor
-     *  INPUT:  current counter values
-     *  OUTPUT: "current count.. decimal: 1    hex: 0x1"
+void clearDisplay() {
+    /* turns off all LED's on the 7-segment display
      */
-    Serial.print("current count.. decimal: ");
-    Serial.print(switch_counter);                              // display switch_counter in decimal format
-    Serial.print("    hex: 0x");
-    Serial.println(switch_counter % 16, HEX);                  // display switch_counter in hex (only 0-F)
+    int offset = 2;                                      //digital outputs start at pin 2, not pin 0
+    for(int i = 0;i< 8;i++) {
+        digitalWrite(i+offset, LOW);                     //turn segment LED off
+    }
 }
 
-int blinkLED(int* LED_state) {
-    /* takes current LED state and reverses it(blinks)
-     *  INPUT:  current LED state (onboard LED)
-     *  OUTPUT: onboard LED and external LED flipped state
-     *  RETURN: new LED state
+void blinkDecimal() {
+    /* blinks decimal LED on seven segment display 5 times
      */
-    if (*LED_state == LOW) {
-      *LED_state = HIGH;                                       // toggle LED LOW->HIGH
+    for(int i = 0;i < 5; i++){
+        digitalWrite(DECIMAL_PIN, HIGH);                 //turn decimal LED on
+        delay(500);
+        digitalWrite(DECIMAL_PIN, LOW);                  //turn LED decimal off
+        delay(500);
     }
-    else {
-      *LED_state = LOW;                                        // toggle LED HIGH->LOW
-    }
-    digitalWrite(DECIMAL_PIN, *LED_state);
-    return *LED_state;                                         // return new LED state
+}
+
+void startupMessage(){
+    /*prints startup message to serial monitor for user to understand the system
+     */
+    Serial.println("System started...\n");
+    Serial.print("When prompted, a reaction timer will start.");
+    Serial.println(" Enter an integer value between 0-15 to test your reaction time");
+    Serial.println("If no input is detected, the system will reset");
+    Serial.println("If invalid input is detected, the timer will reset.\n\n");
+    delay(2000);                                        //give user time to read prompt
 }
