@@ -18,12 +18,16 @@
 #define AnalogInputPin A0
 #define MaxConversions 30
 void setup() {
-    Serial.begin(9600);  //initialize serial monitor
-    Serial.println("Board was reset...\n");  //notify of board reset
+    /*program setup
+    */
+    Serial.begin(9600);                    //initialize serial monitor
+    Serial.println("Board was reset...");  //notify of board reset
 }
 
 
 void loop() {
+    /*main program loop.
+    */
     bool restart_flag = false;        //stores flag to restart program without a reboot
     int conversion_time = 0;          //stores time taken for ADC to convert input to digital
     int start_time = 0;               //stores beginning time before ADC begins conversion
@@ -66,6 +70,9 @@ void loop() {
 }
 
 void printAverageTime(int time_array[]){
+    /*calculates average conversion time for all 30 readings
+     * of the ADC. Then prints the value to the serial monitor
+    */
     int total_time = 0;                    //stores sum of times in time_array
     for(int i = 0;i < MaxConversions; i++){
         total_time += time_array[i];       //add time array enter to sum
@@ -73,7 +80,7 @@ void printAverageTime(int time_array[]){
     float time_average = total_time/(double)MaxConversions;  //calculate the average time (sum/entries)
     Serial.print("\navg conversion time = ");
     Serial.print(time_average);
-    Serial.print(" usecs\n");
+    Serial.println(" usecs\n");
 }
 
 void printConversion(int measurement, int conversion_value, int conversion_time){
@@ -82,7 +89,7 @@ void printConversion(int measurement, int conversion_value, int conversion_time)
     */
     Serial.print("#");
     Serial.print(measurement + 1);         //measurement is 0 based
-    if(measurement + 1 < 10){              //conditional formating is integer is two digits
+    if(measurement + 1 < 10){              //conditional formatting if the measurement is two digits
         Serial.print(":    digital value = ");
     }
     else{
