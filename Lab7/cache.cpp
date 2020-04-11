@@ -208,13 +208,6 @@ int main()
         int totalCacheSize = mmBlocks + 2 + tagBits;         //total cache size in bytes
         int addressLines = indexBits + tagBits + offsetBits; //address lines required (tag + index + offset)
 
-        cout << "Total address lines required = " << addressLines << endl;
-        cout << "Number of bits for offset = " << offsetBits << endl;
-        cout << "Number of bits for index = " << indexBits << endl;
-        cout << "Number of bits for tag = " << tagBits << endl;
-        cout << "Total cache size required = " << totalCacheSize << " bytes" << endl;
-        cout << endl;
-
         //create a blank cache table(all values are 0)
         map<int, cacheBlock> cacheTable;
         for (int i = 0; i < cacheBlocks; i++)
@@ -345,6 +338,15 @@ int main()
             }
             referenceTable[i] = newReference;
         }
+        cout << endl;
+        cout << "Simulator Output:" << endl;
+        cout << "Total address lines required = " << addressLines << endl;
+        cout << "Number of bits for offset = " << offsetBits << endl;
+        cout << "Number of bits for index = " << indexBits << endl;
+        cout << "Number of bits for tag = " << tagBits << endl;
+        cout << "Total cache size required = " << totalCacheSize << " bytes" << endl;
+        cout << endl;
+
         printReferenceTable(setDegree, referenceTable);
         printHitRate(referenceTable);
         printCacheTable(tagBits, cacheTable);
