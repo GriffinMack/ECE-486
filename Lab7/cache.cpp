@@ -124,15 +124,15 @@ void printReferenceTable(int setDegree, map<int, memoryReference> referenceTable
     cout << "main memory address   "
          << "mm blk #   "
          << "cm set #   "
-         << left << setw(setDegree + 11) << "cm blk #   "
+         << left << setw(setDegree + 16) << "cm blk #   "
          << "hit/miss" << endl;
-    cout << "_______________________________________________________________\n";
+    cout << "__________________________________________________________________________\n";
     for (int i = 0; i < referenceTable.size(); i++)
     {
         cout << left << setw(22) << referenceTable[i].memoryAddress;
         cout << left << setw(11) << referenceTable[i].mmBlock;
         cout << left << setw(11) << referenceTable[i].cmSet;
-        cout << left << setw(setDegree + 11) << referenceTable[i].cmBlock;
+        cout << left << setw(setDegree + 16) << referenceTable[i].cmBlock;
         cout << referenceTable[i].hitMiss << endl;
     }
     cout << endl;
@@ -145,7 +145,7 @@ void printCacheTable(int tagSize, map<int, cacheBlock> cacheTable)
          << "valid bit   "
          << left << setw(3 + tagSize) << "tag   "
          << "Data" << endl;
-    cout << "________________________________________________\n";
+    cout << "____________________________________________________\n";
     for (int i = 0; i < cacheTable.size(); i++)
     {
         cout << left << setw(14) << i;
@@ -233,7 +233,6 @@ int main()
             newBlock.tag = tag;
             newBlock.index = index;
             mmTable[i] = newBlock;
-            cout << i << " " << newBlock.tag << " " << newBlock.index << " " << endl;
             index++;
         }
 
@@ -296,7 +295,6 @@ int main()
                         if (instruction == 'W')
                         {
                             cacheTable[cacheBlocks[i]].dirtyBit = 1;
-                            cout << "setting dirty bit " << cacheBlocks[i] << endl;
                         }
                         updateCacheTable(cacheBlocks[i], memoryBlock, mmTable[memoryBlock].tag, cacheTable);
                         cacheTable[cacheBlocks[0]].fifoQueue.push_back(cacheBlocks[i]); //push the cache block changed to the set queue
@@ -318,7 +316,6 @@ int main()
                         if (instruction == 'W')
                         {
                             cacheTable[cacheReplacement].dirtyBit = 1;
-                            cout << "setting dirty bit " << cacheBlocks[i] << endl;
                         }
                         cacheTable[cacheBlocks[0]].lruQueue.pop_front();                 //remove the first element from the queue
                         cacheTable[cacheBlocks[0]].lruQueue.push_back(cacheReplacement); //add the new block to the queue
