@@ -13,7 +13,6 @@ struct mmBlock
 {
     int tag = 0;
     int index = 0;
-    int data = 0;
 };
 
 struct cacheBlock
@@ -64,13 +63,13 @@ string toBinary(int n, int tagBits)
     return binary;
 }
 
-vector<int> possibleBlocks(int set, int setDegree)
+vector<int> possibleBlocks(int index, int setDegree)
 {
     //returns possible cache blocks given a cache set and the set degree
     vector<int> possibleBlocks;
     for (int i = 0; i < setDegree; i++)
     {
-        possibleBlocks.push_back(set * setDegree + i);
+        possibleBlocks.push_back((index * setDegree) + i);
     }
     return possibleBlocks;
 }
@@ -79,6 +78,7 @@ void clearCacheBlock(int cmBlock, map<int, cacheBlock> &cacheTable)
 {
     //clears a given cache block in the cache table
     cacheTable[cmBlock].validBit = 0;
+    cacheTable[cmBlock].dirtyBit = 0;
     cacheTable[cmBlock].tag = 0;
     cacheTable[cmBlock].data.erase();
 }
@@ -87,7 +87,6 @@ void updateCacheTable(int cmBlock, int memoryBlock, int tag, map<int, cacheBlock
 {
     //given a cache block, memory block, tag, and the cache table, updates the cache table with a new value
     cacheTable[cmBlock].validBit = 1;
-    cacheTable[cmBlock].dirtyBit = 0;
     cacheTable[cmBlock].tag = tag;
     cacheTable[cmBlock].data.append("mm blk # ");
     cacheTable[cmBlock].data.append(to_string(memoryBlock));
@@ -205,8 +204,11 @@ int main()
         int offsetBits = countBits(blockSize - 1);           //# of bits for offset
         int indexBits = countBits(cacheSets - 1);            //# of bits for the index ()
         int tagBits = countBits((mmBlocks / cacheSets) - 1); //#of bits for the tag()
-        int totalCacheSize = mmBlocks + 2 + tagBits;         //total cache size in bytes
-        int addressLines = indexBits + tagBits + offsetBits; //address lines required (tag + index + offset)
+
+        int validBytes = cacheBlocks / 8;                             //# of bytes of valid bit data
+        int tagBytes = (tagBits * cacheBlocks) / 8;                   //# of bytes of tag data
+        int totalCacheSize = cacheSize + (2 * validBytes) + tagBytes; //total cache size in bytes(includes dirty bytes)
+        int addressLines = indexBits + tagBits + offsetBits;          //address lines required (tag + index + offset)
 
         //create a blank cache table(all values are 0)
         map<int, cacheBlock> cacheTable;
@@ -216,7 +218,7 @@ int main()
             cacheTable[i] = newBlock;
         }
 
-        //create the main memory table(sets up tag, index and block number)
+        //create the main memory table(sets up tag, index, offset and block number)
         map<int, mmBlock> mmTable;
         int tag = 0;
         int index = 0;
@@ -231,6 +233,7 @@ int main()
             newBlock.tag = tag;
             newBlock.index = index;
             mmTable[i] = newBlock;
+            cout << i << " " << newBlock.tag << " " << newBlock.index << " " << endl;
             index++;
         }
 
@@ -293,6 +296,7 @@ int main()
                         if (instruction == 'W')
                         {
                             cacheTable[cacheBlocks[i]].dirtyBit = 1;
+                            cout << "setting dirty bit " << cacheBlocks[i] << endl;
                         }
                         updateCacheTable(cacheBlocks[i], memoryBlock, mmTable[memoryBlock].tag, cacheTable);
                         cacheTable[cacheBlocks[0]].fifoQueue.push_back(cacheBlocks[i]); //push the cache block changed to the set queue
@@ -311,6 +315,11 @@ int main()
                         int cacheReplacement = cacheTable[cacheBlocks[0]].lruQueue.front();
                         clearCacheBlock(cacheReplacement, cacheTable);
                         updateCacheTable(cacheReplacement, memoryBlock, mmTable[memoryBlock].tag, cacheTable);
+                        if (instruction == 'W')
+                        {
+                            cacheTable[cacheReplacement].dirtyBit = 1;
+                            cout << "setting dirty bit " << cacheBlocks[i] << endl;
+                        }
                         cacheTable[cacheBlocks[0]].lruQueue.pop_front();                 //remove the first element from the queue
                         cacheTable[cacheBlocks[0]].lruQueue.push_back(cacheReplacement); //add the new block to the queue
                     }
